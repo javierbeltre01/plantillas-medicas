@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilo para que la tabla se vea bien en el editor */
+.editor-medico table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid black;
+}
+.editor-medico td {
+  border: 1px solid black;
+  padding: 5px;
+}
