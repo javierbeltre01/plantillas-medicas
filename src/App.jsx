@@ -333,7 +333,36 @@ export default function App() {
         }
         .pc-col-grid::-webkit-scrollbar { width: 5px; }
         .pc-col-grid::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      `}<style>{`
+        .print-only { display: none; }
+        
+        /* ESTILOS PARA VER LAS TABLAS (CUADROS) EN LA PANTALLA */
+        [contenteditable] table, .editor-medico table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 15px 0; 
+        }
+        [contenteditable] td, [contenteditable] th, .editor-medico td, .editor-medico th { 
+          border: 1px solid #94a3b8; 
+          padding: 8px; 
+          min-width: 50px;
+        }
+
+        /* ESTILOS PARA IMPRESIÓN PDF */
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          body { background: white !important; margin: 0; }
+          @page { size: letter; margin: 1.5cm 1.5cm 2.5cm 1.5cm; }
+          .editor-medico table { width: 100%; border-collapse: collapse; margin: 20px 0; page-break-inside: auto; }
+          .editor-medico tr { page-break-inside: avoid !important; }
+          .editor-medico td, .editor-medico th { border: 1.5px solid black !important; padding: 8px !important; }
+        }
+        
+        @media (min-width: 800px) {
+          .plantilla-card:hover { box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+          .hover-red:hover { color: #ef4444 !important; }
+        }
+        .pc-col-grid::-webkit-scrollbar { width: 5px; }
+        .pc-col-grid::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       `}</style>
-    </div>
-  );
-}
