@@ -256,9 +256,21 @@ export default function App() {
         .modal-actions { display: flex; gap: 15px; }
         .btn-cancel { flex: 1; border: none; background: none; color: #94a3b8; font-weight: bold; cursor: pointer; }
 
+        /* --- CORRECCIONES PARA CELULAR --- */
+        .hidden { display: none !important; }
+        .visible { display: flex !important; }
+        
         .mobile-nav { display: flex; background: white; padding: 5px; border-radius: 15px; margin-bottom: 15px; }
         .mobile-nav button { flex: 1; padding: 12px; border: none; background: none; border-radius: 10px; font-weight: bold; color: #64748b; }
         .mobile-nav button.active { background: #16a34a; color: white; }
+
+        @media (max-width: 800px) {
+          .editor-panel { width: 100% !important; border-radius: 20px; }
+          .side-panel { width: 100% !important; }
+          .app-grid { overflow-y: auto; }
+          .patient-bar, .editor-toolbar { flex-wrap: wrap; }
+          .tool-group { flex-wrap: wrap; justify-content: center; width: 100%; margin-bottom: 5px; }
+        }
 
         /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN (PDF) --- */
         .print-only { display: none; }
