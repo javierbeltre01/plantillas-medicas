@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit3, X, Bold, AlignLeft, AlignCenter, AlignRight, AlignJustify, Trash2, List, Type, MoveVertical, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit3, X, Bold, AlignLeft, AlignCenter, AlignRight, AlignJustify, Trash2, List, Type, MoveVertical, Image as ImageIcon, Upload } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import mammoth from 'mammoth';
 
 const supabase = createClient('https://yiujdwitgkzttzsvxvtg.supabase.co', 'sb_publishable_eOsYC8MnLYZtRjp-3_NlPQ_n76Dncix');
 
@@ -77,6 +78,39 @@ export default function App() {
     document.execCommand(cmd, false, val); 
   };
 
+  // NUEVA FUNCIÓN: PROCESAR ARCHIVOS WORD MASIVOS
+  const procesarArchivosWord = async (files) => {
+    if (!files || files.length === 0) return;
+    
+    alert(`Procesando ${files.length} archivos de Word... Por favor, espera.`);
+    const plantillasNuevas = [];
+
+    for (const file of files) {
+      const arrayBuffer = await file.arrayBuffer();
+      // Convertimos el Word a HTML limpio
+      const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+      const html = result.value; 
+
+      plantillasNuevas.push({
+        titulo: file.name.replace(".docx", "").replace(".doc", "").toUpperCase(),
+        contenido: html,
+        categoria: "Importadas"
+        // creado_por: user.id -> Se activará cuando integremos usuarios
+      });
+    }
+
+    // Subida masiva a Supabase
+    const { error } = await supabase.from("plantillas").insert(plantillasNuevas);
+
+    if (!error) {
+      alert(`¡Éxito! ${plantillasNuevas.length} plantillas subidas a SIGAP.`);
+      fetchPlantillas(); // Recarga las plantillas en pantalla
+    } else {
+      console.error("Error al subir:", error);
+      alert("Hubo un error al subir las plantillas.");
+    }
+  };
+
   const filtered = plantillas.filter(p => (p?.titulo||'').toLowerCase().includes(busqueda.toLowerCase()));
   const isPC = window.innerWidth >= 800;
 
@@ -101,13 +135,35 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h1 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#1e293b' }}>PLANTILLAS PRO</h1>
                 
-                {/* BOTONES: LOGO Y NUEVA PLANTILLA */}
-                <div style={{ display: 'flex', gap: '10px' }}>
+                {/* BOTONES: LOGO, IMPORTAR WORD Y NUEVA PLANTILLA */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  
+                  {/* SUBIR LOGO */}
                   <input type="file" ref={fileInputRef} onChange={handleLogoChange} style={{ display: 'none' }} accept="image/*" />
                   <button onClick={() => fileInputRef.current.click()} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: logo ? '#f0fdf4' : '#f8fafc', border: `1px solid ${logo ? '#16a34a' : '#cbd5e1'}`, borderRadius: '10px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold', color: logo ? '#16a34a' : '#64748b' }}>
                     <ImageIcon size={14} /> {logo ? 'CAMBIAR LOGO' : 'SUBIR LOGO'}
                   </button>
-                  <button onClick={() => {setIsEditing(false); setCurrentP({id:null, titulo:''}); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML='',50);}} style={{ backgroundColor: '#16a34a', color: 'white', padding: '8px 15px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>+ NUEVA</button>
+
+                  {/* IMPORTAR WORD */}
+                  <div>
+                    <input 
+                      type="file" 
+                      id="subir-word" 
+                      multiple 
+                      accept=".docx" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => procesarArchivosWord(e.target.files)} 
+                    />
+                    <label 
+                      htmlFor="subir-word" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}
+                    >
+                      <Upload size={14} /> IMPORTAR WORD
+                    </label>
+                  </div>
+
+                  {/* + NUEVA */}
+                  <button onClick={() => {setIsEditing(false); setCurrentP({id:null, titulo:''}); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML='',50);}} style={{ backgroundColor: '#16a34a', color: 'white', padding: '8px 15px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '10px' }}>+ NUEVA</button>
                 </div>
               </div>
               <input style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="Buscar estudio..." onChange={(e) => setBusqueda(e.target.value)} />
@@ -175,14 +231,13 @@ export default function App() {
         </div>
       </div>
 
-      {/* MODAL CREAR / EDITAR - AHORA CON TAMAÑOS */}
+      {/* MODAL CREAR / EDITAR */}
       {showForm && (
         <div className="no-print" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '700px', padding: '30px', borderRadius: '30px', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900' }}>{isEditing ? 'EDITAR' : 'NUEVA'} PLANTILLA</h2>
             <input style={{ width: '100%', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '15px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none' }} placeholder="TÍTULO DEL ESTUDIO" value={currentP.titulo} onChange={e=>setCurrentP({...currentP, titulo: e.target.value})} />
             
-            {/* BARRA DE HERRAMIENTAS MODAL COMPLETA CON TAMAÑOS */}
             <div style={{ backgroundColor: '#f1f5f9', padding: '10px', border: '2px solid #e2e8f0', borderBottom: 'none', borderRadius: '15px 15px 0 0', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                 <button onMouseDown={e=>execFormat(e,'bold')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>B</button>
                 <div style={{ width: '2px', height: '20px', background: '#cbd5e1', margin: '0 5px' }}></div>
@@ -193,7 +248,6 @@ export default function App() {
                 <div style={{ width: '2px', height: '20px', background: '#cbd5e1', margin: '0 5px' }}></div>
                 <button onMouseDown={e=>execFormat(e,'insertUnorderedList')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><List size={16}/></button>
                 
-                {/* TAMAÑOS EN EL MODAL */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '5px' }}>
                   <Type size={14} color="#64748b"/>
                   <select value={fontSize} onChange={e=>setFontSize(e.target.value)} style={{ fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}><option value="10pt">10pt</option><option value="12pt">12pt</option><option value="14pt">14pt</option></select>
