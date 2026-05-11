@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit3, X, Bold, AlignLeft, AlignCenter, AlignRight, AlignJustify, Trash2, List, Type, MoveVertical, Image as ImageIcon, Upload } from 'lucide-react';
+import { 
+  Plus, Edit3, Trash2, Type, MoveVertical, 
+  Image as ImageIcon, Upload, AlignLeft, AlignCenter, 
+  AlignRight, AlignJustify, List 
+} from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import mammoth from 'mammoth';
 
@@ -14,15 +18,10 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState('biblioteca'); 
   const [paciente, setPaciente] = useState('');
   const [fecha, setFecha] = useState(new Date().toLocaleDateString('es-DO'));
-  
-  // VARIABLES DE FORMATO
   const [fontSize, setFontSize] = useState('12pt');
   const [lineHeight, setLineHeight] = useState('1.5');
-  
-  // ESTADO PARA EL LOGO
   const [logo, setLogo] = useState(localStorage.getItem('clinica_logo') || '');
 
-  // DATOS DEL MÉDICO (Recupera de memoria o usa por defecto)
   const [docNom, setDocNom] = useState(localStorage.getItem('doc_nombre') || 'DRA. LEYDI NOVAS FELIZ');
   const [docEsp, setDocEsp] = useState(localStorage.getItem('doc_esp') || 'MÉDICO SONOGRAFISTA VASCULAR');
   const [docExq, setDocExq] = useState(localStorage.getItem('doc_exq') || '421-11');
@@ -33,10 +32,8 @@ export default function App() {
 
   useEffect(() => {
     fetchPlantillas();
-    if (editorRef.current) {
-      const saved = localStorage.getItem('reporte_pro');
-      if (saved) editorRef.current.innerHTML = saved;
-    }
+    const saved = localStorage.getItem('reporte_pro');
+    if (saved && editorRef.current) editorRef.current.innerHTML = saved;
   }, []);
 
   async function fetchPlantillas() {
@@ -44,325 +41,264 @@ export default function App() {
     setPlantillas(data || []);
   }
 
-  // FUNCIÓN PARA CAMBIAR EL LOGO
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result;
-        setLogo(base64String);
-        localStorage.setItem('clinica_logo', base64String);
+        setLogo(reader.result);
+        localStorage.setItem('clinica_logo', reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const guardarPlantilla = async () => {
-    if (!currentP.titulo || !modalEditorRef.current.innerHTML) return alert("Llena el título y el contenido");
-    const datos = { titulo: currentP.titulo, contenido: modalEditorRef.current.innerHTML, categoria: 'General' };
-    if (isEditing) await supabase.from('plantillas').update(datos).eq('id', currentP.id);
-    else await supabase.from('plantillas').insert([datos]);
+  const importarWords = async (files) => {
+    if (!files.length) return;
+    alert(`Procesando ${files.length} archivos...`);
+    const nuevas = [];
+    for (const file of files) {
+      const buffer = await file.arrayBuffer();
+      const { value } = await mammoth.convertToHtml({ arrayBuffer: buffer });
+      nuevas.push({ titulo: file.name.replace(/\.docx|\.doc/g, "").toUpperCase(), contenido: value, categoria: "Importadas" });
+    }
+    const { error } = await supabase.from("plantillas").insert(nuevas);
+    if (!error) { fetchPlantillas(); alert("Importación exitosa."); }
+  };
+
+  const guardar = async () => {
+    const html = modalEditorRef.current.innerHTML;
+    if (!currentP.titulo || !html) return alert("Completa los campos");
+    const payload = { titulo: currentP.titulo, contenido: html, categoria: 'General' };
+    if (isEditing) await supabase.from('plantillas').update(payload).eq('id', currentP.id);
+    else await supabase.from('plantillas').insert([payload]);
     setShowForm(false); fetchPlantillas();
   };
 
-  const eliminarPlantilla = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar esta plantilla?")) {
+  const eliminar = async (id) => {
+    if (confirm("¿Eliminar esta plantilla?")) {
       await supabase.from('plantillas').delete().eq('id', id);
       fetchPlantillas();
     }
   };
 
-  const execFormat = (e, cmd, val = null) => { 
-    e.preventDefault(); 
-    document.execCommand(cmd, false, val); 
-  };
-
-  // NUEVA FUNCIÓN: PROCESAR ARCHIVOS WORD MASIVOS
-  const procesarArchivosWord = async (files) => {
-    if (!files || files.length === 0) return;
-    
-    alert(`Procesando ${files.length} archivos de Word... Por favor, espera.`);
-    const plantillasNuevas = [];
-
-    for (const file of files) {
-      const arrayBuffer = await file.arrayBuffer();
-      // Convertimos el Word a HTML limpio
-      const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-      const html = result.value; 
-
-      plantillasNuevas.push({
-        titulo: file.name.replace(".docx", "").replace(".doc", "").toUpperCase(),
-        contenido: html,
-        categoria: "Importadas"
-        // creado_por: user.id -> Se activará cuando integremos usuarios
-      });
-    }
-
-    // Subida masiva a Supabase
-    const { error } = await supabase.from("plantillas").insert(plantillasNuevas);
-
-    if (!error) {
-      alert(`¡Éxito! ${plantillasNuevas.length} plantillas subidas a SIGAP.`);
-      fetchPlantillas(); // Recarga las plantillas en pantalla
-    } else {
-      console.error("Error al subir:", error);
-      alert("Hubo un error al subir las plantillas.");
-    }
-  };
-
-  const filtered = plantillas.filter(p => (p?.titulo||'').toLowerCase().includes(busqueda.toLowerCase()));
+  const format = (e, cmd) => { e.preventDefault(); document.execCommand(cmd, false, null); };
+  const filtered = plantillas.filter(p => p.titulo.toLowerCase().includes(busqueda.toLowerCase()));
   const isPC = window.innerWidth >= 800;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', backgroundColor: '#f0f4f8', padding: '15px', boxSizing: 'border-box' }}>
-      
-      {/* INTERFAZ DE USUARIO */}
-      <div className="no-print" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <div className="main-bg">
+      <div className="no-print main-layout">
         
+        {/* TABS PARA MÓVIL */}
         {!isPC && (
-          <div style={{ display: 'flex', backgroundColor: 'white', borderRadius: '12px', padding: '5px', marginBottom: '10px', shrink: 0 }}>
-            <button onClick={() => setMobileTab('biblioteca')} style={{ flex: 1, padding: '10px', fontWeight: 'bold', borderRadius: '8px', border: 'none', backgroundColor: mobileTab === 'biblioteca' ? '#16a34a' : 'transparent', color: mobileTab === 'biblioteca' ? 'white' : '#64748b' }}>Biblioteca</button>
-            <button onClick={() => setMobileTab('editor')} style={{ flex: 1, padding: '10px', fontWeight: 'bold', borderRadius: '8px', border: 'none', backgroundColor: mobileTab === 'editor' ? '#16a34a' : 'transparent', color: mobileTab === 'editor' ? 'white' : '#64748b' }}>Editor</button>
+          <div className="mobile-nav">
+            <button onClick={() => setMobileTab('biblioteca')} className={mobileTab === 'biblioteca' ? 'active' : ''}>Biblioteca</button>
+            <button onClick={() => setMobileTab('editor')} className={mobileTab === 'editor' ? 'active' : ''}>Editor</button>
           </div>
         )}
 
-        <div style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden' }}>
-          
+        <div className="app-grid">
           {/* PANEL IZQUIERDO: BIBLIOTECA */}
-          <div style={{ display: (isPC || mobileTab === 'biblioteca') ? 'flex' : 'none', flexDirection: 'column', flex: 1, gap: '15px', overflow: 'hidden' }}>
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', shrink: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h1 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#1e293b' }}>PLANTILLAS PRO</h1>
-                
-                {/* BOTONES: LOGO, IMPORTAR WORD Y NUEVA PLANTILLA */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+          <div className={`side-panel ${isPC || mobileTab === 'biblioteca' ? 'visible' : 'hidden'}`}>
+            <div className="glass-card header-area">
+              <div className="flex-row-between">
+                <h1 className="brand-title">SIGAP <span>PRO</span></h1>
+                <div className="action-row">
+                  <input type="file" ref={fileInputRef} onChange={handleLogoChange} hidden accept="image/*" />
+                  <button onClick={() => fileInputRef.current.click()} className="icon-btn"><ImageIcon size={16}/> LOGO</button>
                   
-                  {/* SUBIR LOGO */}
-                  <input type="file" ref={fileInputRef} onChange={handleLogoChange} style={{ display: 'none' }} accept="image/*" />
-                  <button onClick={() => fileInputRef.current.click()} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: logo ? '#f0fdf4' : '#f8fafc', border: `1px solid ${logo ? '#16a34a' : '#cbd5e1'}`, borderRadius: '10px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold', color: logo ? '#16a34a' : '#64748b' }}>
-                    <ImageIcon size={14} /> {logo ? 'CAMBIAR LOGO' : 'SUBIR LOGO'}
-                  </button>
+                  <input type="file" id="bulk-word" multiple accept=".docx" hidden onChange={e => importarWords(e.target.files)} />
+                  <label htmlFor="bulk-word" className="icon-btn cursor-pointer"><Upload size={16}/> WORD</label>
 
-                  {/* IMPORTAR WORD */}
-                  <div>
-                    <input 
-                      type="file" 
-                      id="subir-word" 
-                      multiple 
-                      accept=".docx" 
-                      style={{ display: 'none' }} 
-                      onChange={(e) => procesarArchivosWord(e.target.files)} 
-                    />
-                    <label 
-                      htmlFor="subir-word" 
-                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}
-                    >
-                      <Upload size={14} /> IMPORTAR WORD
-                    </label>
-                  </div>
-
-                  {/* + NUEVA */}
-                  <button onClick={() => {setIsEditing(false); setCurrentP({id:null, titulo:''}); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML='',50);}} style={{ backgroundColor: '#16a34a', color: 'white', padding: '8px 15px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '10px' }}>+ NUEVA</button>
+                  <button onClick={() => {setIsEditing(false); setCurrentP({id:null, titulo:''}); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML='',50)}} className="primary-btn">+ NUEVA</button>
                 </div>
               </div>
-              <input style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="Buscar estudio..." onChange={(e) => setBusqueda(e.target.value)} />
+              <input className="modern-search" placeholder="Buscar estudio..." onChange={e => setBusqueda(e.target.value)} />
             </div>
             
-            <div className="pc-col-grid" style={{ display: 'grid', gridTemplateColumns: isPC ? 'repeat(2, 1fr)' : '1fr', gap: '12px', overflowY: 'auto', paddingRight: '5px' }}>
+            <div className="templates-scroll">
               {filtered.map(p => (
-                <div key={p.id} className="plantilla-card group" style={{ backgroundColor: 'white', padding: '15px', borderRadius: '20px', border: '1px solid #e2e8f0', position: 'relative', height: '145px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div className="action-buttons" style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '5px', backgroundColor: 'white', padding: '3px', borderRadius: '8px' }}>
-                    <button onClick={() => {setIsEditing(true); setCurrentP(p); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML=p.contenido,50)}} style={{ color: '#cbd5e1', border: 'none', background: 'none', cursor: 'pointer' }}><Edit3 size={16}/></button>
-                    <button onClick={() => eliminarPlantilla(p.id)} style={{ color: '#cbd5e1', border: 'none', background: 'none', cursor: 'pointer' }} className="hover-red"><Trash2 size={16}/></button>
+                <div key={p.id} className="template-card shadow-sm">
+                  <div className="card-controls">
+                    <button onClick={() => {setIsEditing(true); setCurrentP(p); setShowForm(true); setTimeout(()=>modalEditorRef.current.innerHTML=p.contenido,50)}}><Edit3 size={15}/></button>
+                    <button onClick={() => eliminar(p.id)} className="text-red-400"><Trash2 size={15}/></button>
                   </div>
-                  <div>
-                    <h3 style={{ margin: '0 0 5px 0', fontSize: '11px', fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase', paddingRight: '40px' }}>{p.titulo}</h3>
-                    <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: p.contenido }} />
-                  </div>
-                  <button onClick={() => {editorRef.current.innerHTML += p.contenido; if(!isPC) setMobileTab('editor');}} style={{ width:'100%', padding: '8px', fontSize: '9px', fontWeight: 'bold', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>AGREGAR AL REPORTE</button>
+                  <h3>{p.titulo}</h3>
+                  <button className="use-btn" onClick={() => {editorRef.current.innerHTML += p.contenido; if(!isPC) setMobileTab('editor')}}>USAR PLANTILLA</button>
                 </div>
               ))}
             </div>
           </div>
 
           {/* PANEL DERECHO: EDITOR */}
-          <div style={{ display: (isPC || mobileTab === 'editor') ? 'flex' : 'none', flexDirection: 'column', width: isPC ? '500px' : '100%', backgroundColor: 'white', borderRadius: '30px', boxShadow: '0 10px 15px rgba(0,0,0,0.05)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+          <div className={`editor-panel ${isPC || mobileTab === 'editor' ? 'visible' : 'hidden'}`}>
+            <div className="patient-bar">
+              <input className="patient-input" placeholder="PACIENTE" value={paciente} onChange={e=>setPaciente(e.target.value)}/>
+              <input className="date-input" value={fecha} onChange={e=>setFecha(e.target.value)}/>
+            </div>
+
+            <div className="editor-toolbar">
+              <div className="tool-group">
+                <button onMouseDown={e=>format(e,'bold')}><b>B</b></button>
+                <button onMouseDown={e=>format(e,'justifyLeft')}><AlignLeft size={16}/></button>
+                <button onMouseDown={e=>format(e,'justifyCenter')}><AlignCenter size={16}/></button>
+                <button onMouseDown={e=>format(e,'justifyFull')}><AlignJustify size={16}/></button>
+              </div>
+              <div className="tool-group">
+                <select value={fontSize} onChange={e=>setFontSize(e.target.value)}><option value="10pt">10pt</option><option value="12pt">12pt</option><option value="14pt">14pt</option></select>
+                <select value={lineHeight} onChange={e=>setLineHeight(e.target.value)}><option value="1">1.0</option><option value="1.5">1.5</option></select>
+              </div>
+            </div>
+
+            <div ref={editorRef} contentEditable className="canvas" style={{fontSize, lineHeight}} onInput={e=>localStorage.setItem('reporte_pro', e.currentTarget.innerHTML)}></div>
             
-            <div style={{ padding: '20px', display: 'flex', gap: '10px', borderBottom: '1px solid #f1f5f9' }}>
-              <input style={{ flex: 1, padding: '10px', backgroundColor: '#f8fafc', border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }} placeholder="PACIENTE" value={paciente} onChange={e=>setPaciente(e.target.value)}/>
-              <input style={{ width: '110px', padding: '10px', backgroundColor: '#f8fafc', border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }} value={fecha} onChange={e=>setFecha(e.target.value)}/>
-            </div>
-
-            {/* BARRA EDITOR PRINCIPAL COMPLETA */}
-            <div style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-              <button onMouseDown={e=>execFormat(e,'bold')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>B</button>
-              <div style={{ width: '1px', height: '20px', background: '#cbd5e1', margin: '0 2px' }}></div>
-              <button onMouseDown={e=>execFormat(e,'justifyLeft')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignLeft size={16}/></button>
-              <button onMouseDown={e=>execFormat(e,'justifyCenter')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignCenter size={16}/></button>
-              <button onMouseDown={e=>execFormat(e,'justifyRight')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignRight size={16}/></button>
-              <button onMouseDown={e=>execFormat(e,'justifyFull')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignJustify size={16}/></button>
-              <div style={{ width: '1px', height: '20px', background: '#cbd5e1', margin: '0 2px' }}></div>
-              <button onMouseDown={e=>execFormat(e,'insertUnorderedList')} style={{ padding: '6px 12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><List size={16}/></button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '5px' }}>
-                <Type size={14} color="#64748b"/>
-                <select value={fontSize} onChange={e=>setFontSize(e.target.value)} style={{ fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}><option value="10pt">10pt</option><option value="12pt">12pt</option><option value="14pt">14pt</option></select>
-                <MoveVertical size={14} color="#64748b" style={{ marginLeft: '5px' }}/>
-                <select value={lineHeight} onChange={e=>setLineHeight(e.target.value)} style={{ fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}><option value="1">1.0</option><option value="1.5">1.5</option><option value="2">2.0</option></select>
+            <div className="editor-footer">
+              <div className="doc-info-grid">
+                <input placeholder="MÉDICO" value={docNom} onChange={e=>{setDocNom(e.target.value); localStorage.setItem('doc_nombre', e.target.value)}}/>
+                <input placeholder="EXQ" value={docExq} onChange={e=>{setDocExq(e.target.value); localStorage.setItem('doc_exq', e.target.value)}}/>
               </div>
+              <button className="print-btn" onClick={() => {document.getElementById('print-body').innerHTML = editorRef.current.innerHTML; window.print()}}>GENERAR REPORTE PDF</button>
             </div>
-
-            {/* ÁREA DE TEXTO */}
-            <div ref={editorRef} contentEditable style={{ flex: 1, padding: '30px', outline: 'none', overflowY: 'auto', fontFamily: "'Times New Roman', serif", fontSize: fontSize, lineHeight: lineHeight, textAlign:"justify" }} onInput={e=>localStorage.setItem('reporte_pro', e.currentTarget.innerHTML)}></div>
-            
-            {/* DATOS DEL MÉDICO Y BOTÓN PDF */}
-            <div style={{ backgroundColor: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
-              <div style={{ padding: '15px 20px 5px 20px', display: 'flex', gap: '10px' }}>
-                <input style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold' }} placeholder="NOMBRE DEL MÉDICO" value={docNom} onChange={e=>{setDocNom(e.target.value); localStorage.setItem('doc_nombre', e.target.value)}}/>
-                <input style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold' }} placeholder="ESPECIALIDAD" value={docEsp} onChange={e=>{setDocEsp(e.target.value); localStorage.setItem('doc_esp', e.target.value)}}/>
-                <input style={{ width: '70px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }} placeholder="EXQ" value={docExq} onChange={e=>{setDocExq(e.target.value); localStorage.setItem('doc_exq', e.target.value)}}/>
-              </div>
-              <div style={{ padding: '15px 20px 20px 20px' }}>
-                <button onClick={() => {document.getElementById('print-body').innerHTML = editorRef.current.innerHTML; window.print();}} style={{ width: '100%', padding: '15px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '900', fontSize: '12px', cursor: 'pointer' }}>GENERAR PDF</button>
-              </div>
-            </div>
-
           </div>
         </div>
       </div>
 
-      {/* MODAL CREAR / EDITAR */}
+      {/* MODAL */}
       {showForm && (
-        <div className="no-print" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '700px', padding: '30px', borderRadius: '30px', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900' }}>{isEditing ? 'EDITAR' : 'NUEVA'} PLANTILLA</h2>
-            <input style={{ width: '100%', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '15px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none' }} placeholder="TÍTULO DEL ESTUDIO" value={currentP.titulo} onChange={e=>setCurrentP({...currentP, titulo: e.target.value})} />
-            
-            <div style={{ backgroundColor: '#f1f5f9', padding: '10px', border: '2px solid #e2e8f0', borderBottom: 'none', borderRadius: '15px 15px 0 0', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                <button onMouseDown={e=>execFormat(e,'bold')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>B</button>
-                <div style={{ width: '2px', height: '20px', background: '#cbd5e1', margin: '0 5px' }}></div>
-                <button onMouseDown={e=>execFormat(e,'justifyLeft')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignLeft size={16}/></button>
-                <button onMouseDown={e=>execFormat(e,'justifyCenter')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignCenter size={16}/></button>
-                <button onMouseDown={e=>execFormat(e,'justifyRight')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignRight size={16}/></button>
-                <button onMouseDown={e=>execFormat(e,'justifyFull')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><AlignJustify size={16}/></button>
-                <div style={{ width: '2px', height: '20px', background: '#cbd5e1', margin: '0 5px' }}></div>
-                <button onMouseDown={e=>execFormat(e,'insertUnorderedList')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}><List size={16}/></button>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '5px' }}>
-                  <Type size={14} color="#64748b"/>
-                  <select value={fontSize} onChange={e=>setFontSize(e.target.value)} style={{ fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}><option value="10pt">10pt</option><option value="12pt">12pt</option><option value="14pt">14pt</option></select>
-                  <MoveVertical size={14} color="#64748b" style={{ marginLeft: '5px' }}/>
-                  <select value={lineHeight} onChange={e=>setLineHeight(e.target.value)} style={{ fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}><option value="1">1.0</option><option value="1.5">1.5</option><option value="2">2.0</option></select>
-                </div>
-            </div>
-            
-            <div ref={modalEditorRef} contentEditable style={{ height: '350px', padding: '25px', border: '2px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 15px 15px', outline: 'none', overflowY: 'auto', backgroundColor: '#fff', fontFamily: "'Times New Roman', serif", fontSize: fontSize, lineHeight: lineHeight, textAlign: 'justify' }}></div>
-            
-            <div style={{ display: 'flex', gap: '15px' }}>
-              <button onClick={()=>setShowForm(false)} style={{ flex: 1, padding: '15px', fontWeight: 'bold', color: '#94a3b8', border: 'none', background: 'none', cursor: 'pointer' }}>CANCELAR</button>
-              <button onClick={guardarPlantilla} style={{ flex: 2, padding: '15px', backgroundColor: '#16a34a', color: 'white', borderRadius: '15px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>GUARDAR CAMBIOS</button>
+        <div className="modal-back">
+          <div className="modal-box">
+            <h2 className="modal-title">{isEditing ? 'Editar' : 'Nueva'} Plantilla</h2>
+            <input className="modal-input" placeholder="TÍTULO" value={currentP.titulo} onChange={e=>setCurrentP({...currentP, titulo: e.target.value})} />
+            <div ref={modalEditorRef} contentEditable className="modal-canvas" style={{fontSize, lineHeight}}></div>
+            <div className="modal-actions">
+              <button onClick={()=>setShowForm(false)} className="btn-cancel">CANCELAR</button>
+              <button onClick={guardar} className="primary-btn">GUARDAR</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* DISEÑO PDF MEMBRETADO CON LOGO DINÁMICO */}
+      {/* IMPRESIÓN (MEMBRETADO PARA PDF) */}
       <div className="print-only">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2.5px solid #16a34a', paddingBottom: '15px', marginBottom: '25px' }}>
-          
-          <div style={{ width: '100px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {logo ? (
-              <img src={logo} alt="Logo Clínica" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ width: '80px', height: '80px', border: '1px dashed #ccc' }}></div>
-            )}
+        <header className="pdf-header">
+          <div className="pdf-logo">{logo && <img src={logo} alt="logo" />}</div>
+          <div className="pdf-center">
+            <h1>CENTRO DE IMÁGENES DIAGNÓSTICAS</h1>
+            <h2>ORTEGA & GASSET</h2>
           </div>
-          
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h1 style={{ color: '#1e3a8a', fontSize: '22px', fontWeight: '900', margin: '0', letterSpacing: '-0.5px' }}>CENTRO DE IMÁGENES DIAGNÓSTICAS</h1>
-            <h2 style={{ color: '#16a34a', fontSize: '18px', margin: '2px 0 0 0', fontWeight: '800' }}>ORTEGA & GASSET</h2>
-          </div>
-
-          <div style={{ width: '30%', textAlign: 'right', color: '#16a34a', fontSize: '8.5px', fontWeight: 'bold', lineHeight: '1.3' }}>
-            <p style={{ margin: '0 0 4px 0', fontSize: '10px', borderBottom: '1px solid #16a34a', display: 'inline-block' }}>ESTUDIOS</p>
-            <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-              <li>RAYOS X DIGITAL • MAMOGRAFÍA</li>
-              <li>DENSITOMETRIA OSEA • VASCULAR</li>
-              <li>SONOGRAFÍA DIAGNÓSTICA</li>
-              <li>MUSCULO-ESQUELETICA • ECO</li>
-              <li>RESONANCIA MAGNETICA</li>
-            </ul>
-          </div>
+          <div className="pdf-info"><strong>ESTUDIOS ESPECIALIZADOS</strong></div>
         </header>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid #eee', paddingBottom: '12px', marginBottom: '25px', fontSize: '11.5pt', fontWeight: 'bold' }}>
-          <span>FECHA: {fecha}</span>
-          <span>PACIENTE: {paciente.toUpperCase()}</span>
-        </div>
-
-        <main id="print-body" className="editor-medico" style={{ fontSize: fontSize, lineHeight: lineHeight, fontFamily: "'Times New Roman', serif", textAlign: 'justify' }}></main>
-
-        <div style={{ marginTop: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', pageBreakInside: 'avoid' }}>
-          <div style={{ width: '300px', borderTop: '1.5px solid black', textAlign: 'center', paddingTop: '8px' }}>
-            <strong style={{ fontSize: '12.5pt' }}>{docNom}</strong><br/>
-            <span style={{ fontSize: '11pt' }}>{docEsp}</span><br/>
-            <span style={{ fontSize: '11pt' }}>EXQ. {docExq}</span>
+        <div className="pdf-patient"><span>FECHA: {fecha}</span><span>PACIENTE: {paciente.toUpperCase()}</span></div>
+        
+        {/* Aquí va el contenido del reporte */}
+        <main id="print-body"></main>
+        
+        <div className="pdf-sig">
+          <div className="sig-box">
+            <strong>{docNom}</strong><br/>{docEsp}<br/>EXQ. {docExq}
           </div>
         </div>
-
-        <footer style={{ position: 'fixed', bottom: '15px', width: '100%', textAlign: 'center', fontSize: '9.5px', color: '#16a34a', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-          <p style={{ margin: '0 0 2px 0', fontWeight: 'bold' }}>📍 Av. José Ortega y Gasset No. 90, Santo Domingo, Rep. Dom.</p>
-          <p style={{ margin: 0 }}>📞 809-566-2271 Ext.: 130 / 809-563-1453 | ✉️ ccruzjiminian@hotmail.com</p>
-        </footer>
       </div>
 
       <style>{`
-        .print-only { display: none; }
-        @media print {
-          .no-print { display: none !important; }
-          .print-only { display: block !important; }
-          body { background: white !important; margin: 0; }
-          @page { size: letter; margin: 1.5cm 1.5cm 2.5cm 1.5cm; }
-          .editor-medico table { width: 100%; border-collapse: collapse; margin: 20px 0; page-break-inside: auto; }
-          .editor-medico tr { page-break-inside: avoid !important; }
-          .editor-medico td, .editor-medico th { border: 1.5px solid black !important; padding: 8px !important; }
-        }
-        @media (min-width: 800px) {
-          .plantilla-card:hover { box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
-          .hover-red:hover { color: #ef4444 !important; }
-        }
-        .pc-col-grid::-webkit-scrollbar { width: 5px; }
-        .pc-col-grid::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-      `}<style>{`
-        .print-only { display: none; }
+        /* --- ESTILOS DE LA APLICACIÓN (PANTALLA) --- */
+        .main-bg { height: 100vh; background: #f1f5f9; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .main-layout { height: 100%; display: flex; flex-direction: column; padding: 15px; box-sizing: border-box; }
+        .app-grid { display: flex; flex: 1; gap: 20px; overflow: hidden; }
         
-        /* ESTILOS PARA VER LAS TABLAS (CUADROS) EN LA PANTALLA */
-        [contenteditable] table, .editor-medico table { 
-          width: 100%; 
-          border-collapse: collapse; 
-          margin: 15px 0; 
-        }
-        [contenteditable] td, [contenteditable] th, .editor-medico td, .editor-medico th { 
-          border: 1px solid #94a3b8; 
-          padding: 8px; 
-          min-width: 50px;
-        }
+        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .header-area { background: white; padding: 20px; border-radius: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .flex-row-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .brand-title { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
+        .brand-title span { color: #16a34a; }
+        .action-row { display: flex; gap: 10px; }
+        
+        .primary-btn { background: #16a34a; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .primary-btn:hover { background: #15803d; }
+        .icon-btn { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 15px; border-radius: 12px; font-size: 11px; font-weight: bold; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .icon-btn:hover { background: #f1f5f9; }
+        
+        .modern-search { width: 100%; padding: 12px 15px; border-radius: 15px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 14px; }
+        .templates-scroll { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; overflow-y: auto; padding-bottom: 20px; }
+        
+        .template-card { background: white; padding: 20px; border-radius: 22px; border: 1px solid #e2e8f0; position: relative; transition: 0.2s; }
+        .template-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .card-controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
+        .card-controls button { background: none; border: none; color: #cbd5e1; cursor: pointer; }
+        .card-controls button:hover { color: #64748b; }
+        .template-card h3 { font-size: 12px; margin: 0 0 15px 0; color: #334155; text-transform: uppercase; line-height: 1.4; padding-right: 40px; }
+        .use-btn { width: 100%; background: #1e293b; color: white; border: none; padding: 10px; border-radius: 10px; font-size: 10px; font-weight: bold; cursor: pointer; }
 
-        /* ESTILOS PARA IMPRESIÓN PDF */
+        .editor-panel { width: 550px; background: white; border-radius: 30px; display: flex; flex-direction: column; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .patient-bar { padding: 20px; display: flex; gap: 10px; border-bottom: 1px solid #f1f5f9; }
+        .patient-input { flex: 1; padding: 12px; background: #f8fafc; border: none; border-radius: 12px; font-weight: bold; font-size: 13px; outline: none; }
+        .date-input { width: 110px; text-align: center; background: #f8fafc; border: none; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        
+        .editor-toolbar { background: #f8fafc; padding: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
+        .tool-group { display: flex; gap: 6px; align-items: center; }
+        .tool-group button, .tool-group select { background: white; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        
+        .canvas { flex: 1; padding: 35px; outline: none; overflow-y: auto; text-align: justify; font-family: 'Times New Roman', serif; }
+        .editor-footer { padding: 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+        .doc-info-grid { display: flex; gap: 10px; margin-bottom: 15px; }
+        .doc-info-grid input { flex: 1; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 11px; font-weight: bold; }
+        .print-btn { width: 100%; background: #16a34a; color: white; border: none; padding: 16px; border-radius: 15px; font-weight: 800; font-size: 13px; cursor: pointer; }
+
+        table { width: 100% !important; border-collapse: collapse !important; margin: 15px 0 !important; }
+        td, th { border: 1px solid #cbd5e1 !important; padding: 10px !important; }
+
+        .modal-back { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .modal-box { background: white; width: 100%; max-width: 800px; padding: 30px; border-radius: 35px; display: flex; flex-direction: column; gap: 15px; max-height: 90vh; }
+        .modal-title { margin: 0; font-size: 18px; font-weight: 900; }
+        .modal-input { padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; background: #f8fafc; font-weight: bold; outline: none; }
+        .modal-canvas { flex: 1; border: 1px solid #e2e8f0; padding: 25px; overflow-y: auto; outline: none; border-radius: 20px; background: white; font-family: 'Times New Roman', serif; }
+        .modal-actions { display: flex; gap: 15px; }
+        .btn-cancel { flex: 1; border: none; background: none; color: #94a3b8; font-weight: bold; cursor: pointer; }
+
+        .mobile-nav { display: flex; background: white; padding: 5px; border-radius: 15px; margin-bottom: 15px; }
+        .mobile-nav button { flex: 1; padding: 12px; border: none; background: none; border-radius: 10px; font-weight: bold; color: #64748b; }
+        .mobile-nav button.active { background: #16a34a; color: white; }
+
+        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN (PDF) --- */
+        .print-only { display: none; }
         @media print {
+          /* APAGAR EL BLOQUEO DE SCROLL PARA QUE PASE DE PÁGINA */
+          html, body, .main-bg, .main-layout, .app-grid { 
+            height: auto !important; 
+            min-height: auto !important;
+            overflow: visible !important; 
+            display: block !important; 
+            background: white !important;
+          }
+          
+          /* OCULTAR LA APP, MOSTRAR EL REPORTE */
           .no-print { display: none !important; }
           .print-only { display: block !important; }
-          body { background: white !important; margin: 0; }
-          @page { size: letter; margin: 1.5cm 1.5cm 2.5cm 1.5cm; }
-          .editor-medico table { width: 100%; border-collapse: collapse; margin: 20px 0; page-break-inside: auto; }
-          .editor-medico tr { page-break-inside: avoid !important; }
-          .editor-medico td, .editor-medico th { border: 1.5px solid black !important; padding: 8px !important; }
+          
+          /* FORZAR LA IMPRESIÓN DE COLORES Y LOGOS */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          
+          /* MÁRGENES DE LA HOJA (TAMAÑO CARTA) */
+          @page { size: letter; margin: 1.5cm; }
+          
+          /* ENCABEZADO */
+          .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #16a34a !important; padding-bottom: 15px; page-break-inside: avoid; }
+          .pdf-logo img { max-width: 100px !important; max-height: 100px !important; display: block !important; }
+          .pdf-center h1 { color: #1e3a8a !important; font-size: 20px; margin: 0; }
+          .pdf-patient { display: flex; justify-content: space-between; margin: 25px 0; font-size: 12pt; font-weight: bold; border-bottom: 1px solid #eee !important; padding-bottom: 10px; page-break-inside: avoid; }
+          
+          /* CUERPO DEL TEXTO Y TABLAS PARA QUE NO SE CORTEN FEO */
+          #print-body { page-break-before: auto; page-break-after: auto; }
+          #print-body table { border: 1.5px solid black !important; page-break-inside: auto; margin-bottom: 20px; width: 100% !important; border-collapse: collapse !important; }
+          #print-body tr { page-break-inside: avoid !important; }
+          #print-body td { border: 1.5px solid black !important; padding: 8px !important; }
+          
+          /* FIRMA AL FINAL DE LA ÚLTIMA PÁGINA */
+          .pdf-sig { margin-top: 60px; text-align: center; page-break-inside: avoid; }
+          .sig-box { border-top: 1.5px solid black !important; display: inline-block; padding-top: 8px; width: 300px; }
         }
-        
-        @media (min-width: 800px) {
-          .plantilla-card:hover { box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
-          .hover-red:hover { color: #ef4444 !important; }
-        }
-        .pc-col-grid::-webkit-scrollbar { width: 5px; }
-        .pc-col-grid::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       `}</style>
+    </div>
+  );
+}
