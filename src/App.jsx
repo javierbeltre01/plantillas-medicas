@@ -179,19 +179,43 @@ export default function App() {
         </div>
       )}
 
-      {/* IMPRESIÓN (MEMBRETADO PARA PDF) */}
+      {/* IMPRESIÓN (NUEVO ENCABEZADO BASADO EN IMAGEN) */}
       <div className="print-only">
-        <header className="pdf-header">
-          <div className="pdf-logo">{logo && <img src={logo} alt="logo" />}</div>
-          <div className="pdf-center">
-            <h1>CENTRO DE IMÁGENES DIAGNÓSTICAS</h1>
-            <h2>ORTEGA & GASSET</h2>
+        <header className="pdf-header-new">
+          {/* Lado Izquierdo: Logo */}
+          <div className="pdf-header-left">
+            {logo ? <img src={logo} alt="logo" /> : <div className="no-logo-print">LOGO</div>}
           </div>
-          <div className="pdf-info"><strong>ESTUDIOS ESPECIALIZADOS</strong></div>
+
+          {/* Centro: Título y Doble Línea Verde */}
+          <div className="pdf-header-center">
+            <h1 className="main-center-title">CENTRO DE IMÁGENES DIAGNÓSTICAS</h1>
+            <div className="double-green-line"></div>
+            <h2 className="sub-center-title">ORTEGA & GASSET</h2>
+          </div>
+
+          {/* Lado Derecho: Lista de Estudios */}
+          <div className="pdf-header-right">
+            <h3 className="estudios-title">ESTUDIOS</h3>
+            <ul className="estudios-list">
+              <li>• RAYOS X DIGITAL</li>
+              <li>• MAMOGRAFÍA DIGITAL</li>
+              <li>• DENSITOMETRIA OSEA</li>
+              <li>• SONOGRAFÍA VASCULAR</li>
+              <li>• SONOGRAFÍA DIAGNÓSTICA</li>
+              <li>• SONOGRAFÍA MUSCULO-ESQUELETICA</li>
+              <li>• TOMOGRAFÍA AXIAL TRIDIMENSIONAL</li>
+              <li>• ECOCARDIOGRAFÍA CON COLOR DOPPLER</li>
+              <li>• RESONANCIA MAGNETICA</li>
+            </ul>
+          </div>
         </header>
-        <div className="pdf-patient"><span>FECHA: {fecha}</span><span>PACIENTE: {paciente.toUpperCase()}</span></div>
+
+        <div className="pdf-patient">
+          <span>FECHA: {fecha}</span>
+          <span>PACIENTE: {paciente.toUpperCase()}</span>
+        </div>
         
-        {/* Aquí va el contenido del reporte */}
         <main id="print-body"></main>
         
         <div className="pdf-sig">
@@ -256,7 +280,6 @@ export default function App() {
         .modal-actions { display: flex; gap: 15px; }
         .btn-cancel { flex: 1; border: none; background: none; color: #94a3b8; font-weight: bold; cursor: pointer; }
 
-        /* --- CORRECCIONES PARA CELULAR --- */
         .hidden { display: none !important; }
         .visible { display: flex !important; }
         
@@ -272,10 +295,9 @@ export default function App() {
           .tool-group { flex-wrap: wrap; justify-content: center; width: 100%; margin-bottom: 5px; }
         }
 
-        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN (PDF) --- */
+        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN (NUEVO ENCABEZADO) --- */
         .print-only { display: none; }
         @media print {
-          /* APAGAR EL BLOQUEO DE SCROLL PARA QUE PASE DE PÁGINA */
           html, body, .main-bg, .main-layout, .app-grid { 
             height: auto !important; 
             min-height: auto !important;
@@ -284,31 +306,89 @@ export default function App() {
             background: white !important;
           }
           
-          /* OCULTAR LA APP, MOSTRAR EL REPORTE */
           .no-print { display: none !important; }
           .print-only { display: block !important; }
           
-          /* FORZAR LA IMPRESIÓN DE COLORES Y LOGOS */
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          @page { size: letter; margin: 1cm 1.5cm; }
+
+          /* ESTRUCTURA DEL ENCABEZADO SEGÚN IMAGEN */
+          .pdf-header-new { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            padding-bottom: 10px; 
+            margin-bottom: 15px;
+          }
+
+          .pdf-header-left { width: 120px; }
+          .pdf-header-left img { max-width: 100%; display: block; }
+          .no-logo-print { width: 80px; height: 80px; border: 1px dashed #ccc; text-align: center; line-height: 80px; font-size: 10px; }
+
+          .pdf-header-center { 
+            flex: 1; 
+            text-align: center; 
+            padding: 0 10px; 
+            margin-top: 25px;
+          }
+          .main-center-title { 
+            color: #1e4a84 !important; 
+            font-size: 20pt; 
+            font-weight: 800; 
+            margin: 0; 
+            line-height: 1;
+          }
+          .double-green-line { 
+            height: 6px; 
+            border-top: 2px solid #16a34a !important; 
+            border-bottom: 2px solid #16a34a !important; 
+            margin: 8px auto;
+            width: 90%;
+          }
+          .sub-center-title { 
+            color: #1e4a84 !important; 
+            font-size: 15pt; 
+            font-weight: 700; 
+            margin: 0;
+            letter-spacing: 1px;
+          }
+
+          .pdf-header-right { 
+            width: 210px; 
+            text-align: right; 
+          }
+          .estudios-title { 
+            color: #1e4a84 !important; 
+            font-size: 11pt; 
+            font-weight: 800; 
+            margin: 0 0 5px 0; 
+          }
+          .estudios-list { 
+            list-style: none; 
+            padding: 0; 
+            margin: 0; 
+            color: #16a34a !important; 
+            font-size: 7.8pt; 
+            font-weight: 600;
+            line-height: 1.1;
+          }
+          .estudios-list li { margin-bottom: 1px; }
+
+          .pdf-patient { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 20px 0; 
+            font-size: 11pt; 
+            font-weight: bold; 
+            border-bottom: 1px solid #ccc !important; 
+            padding-bottom: 5px; 
+          }
           
-          /* MÁRGENES DE LA HOJA (TAMAÑO CARTA) */
-          @page { size: letter; margin: 1.5cm; }
-          
-          /* ENCABEZADO */
-          .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #16a34a !important; padding-bottom: 15px; page-break-inside: avoid; }
-          .pdf-logo img { max-width: 100px !important; max-height: 100px !important; display: block !important; }
-          .pdf-center h1 { color: #1e3a8a !important; font-size: 20px; margin: 0; }
-          .pdf-patient { display: flex; justify-content: space-between; margin: 25px 0; font-size: 12pt; font-weight: bold; border-bottom: 1px solid #eee !important; padding-bottom: 10px; page-break-inside: avoid; }
-          
-          /* CUERPO DEL TEXTO Y TABLAS PARA QUE NO SE CORTEN FEO */
-          #print-body { page-break-before: auto; page-break-after: auto; }
-          #print-body table { border: 1.5px solid black !important; page-break-inside: auto; margin-bottom: 20px; width: 100% !important; border-collapse: collapse !important; }
-          #print-body tr { page-break-inside: avoid !important; }
+          #print-body table { border: 1.5px solid black !important; width: 100% !important; border-collapse: collapse !important; }
           #print-body td { border: 1.5px solid black !important; padding: 8px !important; }
           
-          /* FIRMA AL FINAL DE LA ÚLTIMA PÁGINA */
-          .pdf-sig { margin-top: 60px; text-align: center; page-break-inside: avoid; }
-          .sig-box { border-top: 1.5px solid black !important; display: inline-block; padding-top: 8px; width: 300px; }
+          .pdf-sig { margin-top: 50px; text-align: center; page-break-inside: avoid; }
+          .sig-box { border-top: 1.5px solid black !important; display: inline-block; padding-top: 5px; width: 280px; }
         }
       `}</style>
     </div>
