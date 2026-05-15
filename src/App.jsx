@@ -182,19 +182,16 @@ export default function App() {
       {/* IMPRESIÓN (NUEVO ENCABEZADO BASADO EN IMAGEN) */}
       <div className="print-only">
         <header className="pdf-header-new">
-          {/* Lado Izquierdo: Logo */}
           <div className="pdf-header-left">
             {logo ? <img src={logo} alt="logo" /> : <div className="no-logo-print">LOGO</div>}
           </div>
 
-          {/* Centro: Título y Doble Línea Verde */}
           <div className="pdf-header-center">
             <h1 className="main-center-title">CENTRO DE IMÁGENES DIAGNÓSTICAS</h1>
             <div className="double-green-line"></div>
             <h2 className="sub-center-title">ORTEGA & GASSET</h2>
           </div>
 
-          {/* Lado Derecho: Lista de Estudios */}
           <div className="pdf-header-right">
             <h3 className="estudios-title">ESTUDIOS</h3>
             <ul className="estudios-list">
@@ -216,11 +213,14 @@ export default function App() {
           <span>PACIENTE: {paciente.toUpperCase()}</span>
         </div>
         
-        <main id="print-body"></main>
+        <main id="print-body" style={{ fontSize: fontSize, lineHeight: lineHeight, fontFamily: "'Times New Roman', serif", textAlign: 'justify' }}></main>
         
+        {/* BLOQUE DE FIRMA MÁS PEQUEÑO Y COMPACTO */}
         <div className="pdf-sig">
           <div className="sig-box">
-            <strong>{docNom}</strong><br/>{docEsp}<br/>EXQ. {docExq}
+            <strong>{docNom}</strong><br/>
+            <span style={{ fontSize: '9pt' }}>{docEsp}</span><br/>
+            <span style={{ fontSize: '9pt' }}>EXQ. {docExq}</span>
           </div>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default function App() {
           .tool-group { flex-wrap: wrap; justify-content: center; width: 100%; margin-bottom: 5px; }
         }
 
-        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN (NUEVO ENCABEZADO) --- */
+        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN --- */
         .print-only { display: none; }
         @media print {
           html, body, .main-bg, .main-layout, .app-grid { 
@@ -312,7 +312,6 @@ export default function App() {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           @page { size: letter; margin: 1cm 1.5cm; }
 
-          /* ESTRUCTURA DEL ENCABEZADO SEGÚN IMAGEN */
           .pdf-header-new { 
             display: flex; 
             justify-content: space-between; 
@@ -377,7 +376,7 @@ export default function App() {
           .pdf-patient { 
             display: flex; 
             justify-content: space-between; 
-            margin: 20px 0; 
+            margin: 15px 0; 
             font-size: 11pt; 
             font-weight: bold; 
             border-bottom: 1px solid #ccc !important; 
@@ -387,8 +386,15 @@ export default function App() {
           #print-body table { border: 1.5px solid black !important; width: 100% !important; border-collapse: collapse !important; }
           #print-body td { border: 1.5px solid black !important; padding: 8px !important; }
           
-          .pdf-sig { margin-top: 50px; text-align: center; page-break-inside: avoid; }
-          .sig-box { border-top: 1.5px solid black !important; display: inline-block; padding-top: 5px; width: 280px; }
+          /* FIRMA OPTIMIZADA */
+          .pdf-sig { margin-top: 25px; text-align: center; page-break-inside: avoid; }
+          .sig-box { 
+            border-top: 1px solid black !important; 
+            display: inline-block; 
+            padding-top: 5px; 
+            width: 220px; 
+            font-size: 10pt;
+          }
         }
       `}</style>
     </div>
